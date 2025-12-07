@@ -1,16 +1,97 @@
 ﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@inject AuthService Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
 
-        <article class="content px-4">
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="4" Color="Color.Primary">
+        <!-- LEFT: 3-line icon to toggle left drawer -->
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       OnClick="@ToggleDrawer" />
+
+        <!-- CENTER: project name -->
+        <MudSpacer />
+        <MudText Typo="Typo.h6" Class="font-weight-bold">
+            Weather App
+        </MudText>
+        <MudSpacer />
+
+        <!-- RIGHT: login / profile -->
+        @if (!Auth.IsLoggedIn)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Inherit"
+                       OnClick="@(()=>Nav.NavigateTo("/login"))">
+                Login
+            </MudButton>
+        }
+        else if (Auth.CurrentProfile is not null)
+        {
+            var displayName = Auth.CurrentProfile.FullName ?? Auth.CurrentUser?.Email ?? "User";
+
+            <MudAvatar Size="Size.Medium">
+                @displayName.FirstOrDefault('U')
+            </MudAvatar>
+            <MudText Class="ml-2 mr-2">@displayName</MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                       OnClick="@LogoutAsync">
+                Logout
+            </MudButton>
+        }
+
+    </MudAppBar>
+
+    <!-- LEFT DRAWER: responsive, not dimming background -->
+    <MudDrawer @bind-Open="_drawerOpen"
+               Anchor="Anchor.Left"
+               ClipMode="DrawerClipMode.Never"
+               Variant="DrawerVariant.Responsive">
+        <MudNavMenu>
+            <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">
+                Home
+            </MudNavLink>
+
+           
+
+            @if (Auth.IsLoggedIn)
+            {
+                <MudNavLink Href="/profile" Icon="@Icons.Material.Filled.Person">
+                    Profile
+                </MudNavLink>
+                <MudNavLink Href="/recent-searches" Icon="@Icons.Material.Filled.History">
+                    Recent Searches
+                </MudNavLink>
+            }
+            
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
             @Body
-        </article>
-    </main>
-</div>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    // drawer starts OPEN on the left
+    bool _drawerOpen = false;
+
+    void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    async Task LogoutAsync()
+    {
+        await Auth.LogoutAsync();
+
+        Snackbar.Add("Logout successful", Severity.Success);
+
+        Nav.NavigateTo("/");
+    }
+
+}

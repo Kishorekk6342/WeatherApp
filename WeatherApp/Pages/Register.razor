@@ -1,0 +1,160 @@
+﻿@page "/register"
+@inject AuthService Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<MudPaper Class="mx-auto mt-8 pa-6" MaxWidth="500px" Elevation="10">
+    <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4">
+        Create Account
+    </MudText>
+
+    <MudTextField @bind-Value="_fullName"
+                  Label="Full Name"
+                  Variant="Variant.Outlined"
+                  Required="true"
+                  RequiredError="Full name is required."
+                  FullWidth="true" />
+
+    <MudTextField @bind-Value="_email"
+                  Label="Email"
+                  Variant="Variant.Outlined"
+                  InputType="InputType.Email"
+                  Required="true"
+                  RequiredError="Email is required."
+                  FullWidth="true"
+                  Class="mt-2" />
+
+    <MudTextField @bind-Value="_password"
+                  Label="Password"
+                  Variant="Variant.Outlined"
+                  InputType="InputType.Password"
+                  Required="true"
+                  RequiredError="Password is required."
+                  FullWidth="true"
+                  Class="mt-2" />
+
+    <MudTextField @bind-Value="_confirm"
+                  Label="Confirm Password"
+                  Variant="Variant.Outlined"
+                  InputType="InputType.Password"
+                  Required="true"
+                  RequiredError="Please confirm your password."
+                  FullWidth="true"
+                  Class="mt-2" />
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudText Color="Color.Error"
+                 Align="Align.Center"
+                 Class="mt-3">
+            @_error
+        </MudText>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(SuccessMessage))
+    {
+        <MudText Color="Color.Success"
+                 Align="Align.Center"
+                 Class="mt-3">
+            @SuccessMessage
+        </MudText>
+    }
+
+    <MudButton Class="mt-4"
+               Variant="Variant.Filled"
+               Color="Color.Primary"
+               FullWidth="true"
+               Disabled="_busy"
+               OnClick="OnRegisterAsync">
+        REGISTER
+    </MudButton>
+
+    <MudText Align="Align.Center" Class="mt-3">
+        Already have an account?
+        <MudLink Href="/login"> Login</MudLink>
+    </MudText>
+</MudPaper>
+
+@code {
+    string _fullName = string.Empty;
+    string _email = string.Empty;
+    string _password = string.Empty;
+    string _confirm = string.Empty;
+    string _error = string.Empty;
+    bool _busy = false;
+    string SuccessMessage = string.Empty;
+
+    private async Task OnRegisterAsync()
+    {
+        _error = string.Empty;
+        SuccessMessage = string.Empty;
+
+        // basic validation before calling Supabase
+        if (string.IsNullOrWhiteSpace(_fullName) ||
+            string.IsNullOrWhiteSpace(_email) ||
+            string.IsNullOrWhiteSpace(_password) ||
+            string.IsNullOrWhiteSpace(_confirm))
+        {
+            _error = "Please enter your full name, email, password and confirm password.";
+            return;
+        }
+
+        if (_password.Length < 6)
+        {
+            _error = "Password should be at least 6 characters.";
+            return;
+        }
+
+        if (_password != _confirm)
+        {
+            _error = "Passwords do not match.";
+            return;
+        }
+
+        _busy = true;
+
+        try
+        {
+            // if your RegisterAsync returns Task instead of Task<bool>,
+            // just do: await Auth.RegisterAsync(_email, _password, _fullName);
+            bool ok = await Auth.RegisterAsync(_email, _password, _fullName);
+
+            if (!ok)
+            {
+                _error = "Could not create your account. Please try again.";
+                return;
+            }
+
+            // snackbar + info text
+            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+            Snackbar.Configuration.SnackbarVariant = Variant.Filled;
+            Snackbar.Add("Registration successful!", Severity.Success);
+
+            SuccessMessage = "Verification email sent. Please confirm your email to login.";
+
+            await Task.Delay(2000);
+            Nav.NavigateTo("/login");
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.Message ?? string.Empty;
+
+            if (msg.Contains("anonymous_provider_disabled", StringComparison.OrdinalIgnoreCase))
+            {
+                _error = "Anonymous sign-ins are disabled. Please register with email and password.";
+            }
+            else if (msg.Contains("weak_password", StringComparison.OrdinalIgnoreCase))
+            {
+                _error = "Password is too weak. It should be at least 6 characters.";
+            }
+            else
+            {
+                _error = "Something went wrong while creating your account. Please try again.";
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

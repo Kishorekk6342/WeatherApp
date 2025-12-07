@@ -1,0 +1,114 @@
+﻿@page "/login"
+@inject AuthService Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<MudPaper Class="mx-auto mt-8 pa-6" MaxWidth="500px" Elevation="10">
+    <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4">
+        Login
+    </MudText>
+
+    <MudTextField @bind-Value="_email"
+                  Label="Email"
+                  Variant="Variant.Outlined"
+                  InputType="InputType.Email"
+                  Required="true"
+                  RequiredError="Email is required."
+                  FullWidth="true"
+                  InputAttributes="@(new Dictionary<string, object> { { "autocomplete", "email" } })" />
+
+    <MudTextField @bind-Value="_password"
+                  Label="Password"
+                  Variant="Variant.Outlined"
+                  InputType="InputType.Password"
+                  Required="true"
+                  RequiredError="Password is required."
+                  FullWidth="true"
+                  Class="mt-2"
+                  InputAttributes="@(new Dictionary<string, object> { { "autocomplete", "current-password" } })" />
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudText Color="Color.Error"
+                 Align="Align.Center"
+                 Class="mt-3">
+            @_error
+        </MudText>
+    }
+
+    <MudButton Class="mt-4"
+               Variant="Variant.Filled"
+               Color="Color.Primary"
+               FullWidth="true"
+               Disabled="_busy"
+               OnClick="OnLoginAsync">
+        LOGIN
+    </MudButton>
+
+    <MudText Align="Align.Center" Class="mt-3">
+        Don't have an account?
+        <MudLink Href="/register"> Register</MudLink>
+    </MudText>
+</MudPaper>
+
+@code {
+    string _email = string.Empty;
+    string _password = string.Empty;
+    string _error = string.Empty;
+    bool _busy = false;
+
+    private async Task OnLoginAsync()
+    {
+        _error = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_email) ||
+            string.IsNullOrWhiteSpace(_password))
+        {
+            _error = "Please enter your email and password.";
+            return;
+        }
+
+        _busy = true;
+
+        try
+        {
+            // If your LoginAsync returns Task instead of Task<bool>,
+            // just call: await Auth.LoginAsync(_email, _password);
+            bool ok = await Auth.LoginAsync(_email, _password);
+
+            if (!ok)
+            {
+                _error = "Invalid email or password.";
+                return;
+            }
+
+            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+            Snackbar.Configuration.SnackbarVariant = Variant.Filled;
+            Snackbar.Add("Login successful!", Severity.Success);
+
+            Nav.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.Message ?? string.Empty;
+
+            if (msg.Contains("email_not_confirmed", StringComparison.OrdinalIgnoreCase))
+            {
+                _error = "Please verify your email address before logging in. Check your inbox for the verification email.";
+            }
+            else if (msg.Contains("invalid_credentials", StringComparison.OrdinalIgnoreCase))
+            {
+                // covers: user not found OR wrong password
+                _error = "Invalid email or password.";
+            }
+            else
+            {
+                _error = "Could not log you in. Please try again.";
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

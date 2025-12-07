@@ -1,0 +1,73 @@
+﻿@page "/recent-searches"
+@inject RecentSearchService RecentSearchService
+@inject AuthService Auth
+
+<MudPaper Class="mx-auto mt-8 pa-6" MaxWidth="800px" Elevation="10">
+    <MudText Typo="Typo.h4" Class="mb-4">
+        Recent Searches
+    </MudText>
+
+    @if (!Auth.IsLoggedIn)
+    {
+        <MudAlert Severity="Severity.Info">
+            Please log in to see your recent searches.
+        </MudAlert>
+    }
+    else if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Class="mb-2" />
+        <MudText>Loading...</MudText>
+    }
+    else if (_items.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info">
+            No recent searches yet. Search for a city on the home page after logging in.
+        </MudAlert>
+    }
+    else
+    {
+        <MudTable Items="_items" Hover="true">
+            <HeaderContent>
+                <MudTh>City</MudTh>
+                <MudTh>Date</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.City</MudTd>
+                <MudTd>
+                    @context.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy hh:mm tt")
+                </MudTd>
+                <MudTd>
+                    <MudButton Color="Color.Error"
+                               Variant="Variant.Outlined"
+                               Size="Size.Small"
+                               OnClick="@(()=>DeleteAsync(context.Id))">
+                        Delete
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    bool _loading = true;
+    List<RecentSearch> _items = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsLoggedIn)
+        {
+            _items = await RecentSearchService.GetAsync();
+        }
+
+        _loading = false;
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        await RecentSearchService.DeleteAsync(id);
+        _items.RemoveAll(x => x.Id == id);
+        StateHasChanged();
+    }
+}

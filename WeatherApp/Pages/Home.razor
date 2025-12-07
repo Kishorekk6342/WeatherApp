@@ -1,7 +1,199 @@
 ﻿@page "/"
+@inject WeatherService WeatherService
+@inject IJSRuntime JS
+@inject AuthService Auth
+@inject RecentSearchService RecentSearchService
+@using WeatherApp.Models
 
-<PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
 
-Welcome to your new app.
+<MudPaper Class="mx-auto mt-8 pa-6" MaxWidth="800px" Elevation="10">
+    <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4">
+        Weather Forecast
+    </MudText>
+
+    <MudText Align="Align.Center" Class="mb-4">
+        Choose how you want to get the weather:
+    </MudText>
+
+    <!-- OPTIONS -->
+    <MudGrid Class="mb-4" Justify="Justify.Center" Spacing="3">
+    <!-- LEFT: current location card -->
+    <MudItem xs="12" md="5">
+        <MudPaper Class="pa-4 d-flex flex-column align-center" Elevation="4">
+            <MudIcon Icon="@Icons.Material.Filled.MyLocation" Size="Size.Large" Class="mb-2" />
+            <MudText Typo="Typo.subtitle1" Align="Align.Center" Class="mb-2">
+                Use your current location
+            </MudText>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       OnClick="GetByLocationAsync">
+                USE CURRENT LOCATION
+            </MudButton>
+        </MudPaper>
+    </MudItem>
+
+    <!-- MIDDLE: OR separator -->
+        <MudItem xs="12" md="2" Class="d-flex justify-center align-center">
+            <MudChip T="string"
+                     Color="Color.Default"
+                     Variant="Variant.Outlined">
+                OR
+            </MudChip>
+        </MudItem>
+
+    <!-- RIGHT: city search card -->
+    <MudItem xs="12" md="5">
+        <MudPaper Class="pa-4" Elevation="4">
+            <MudText Typo="Typo.subtitle1" Align="Align.Center" Class="mb-2">
+                Search by city name
+            </MudText>
+
+            <MudStack Spacing="1">
+                <MudTextField @bind-Value="_city"
+                              Label="Enter City Name"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.LocationCity" />
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Secondary"
+                           FullWidth="true"
+                           Disabled="@string.IsNullOrWhiteSpace(_city)"
+                           OnClick="GetByCityAsync">
+                    GET WEATHER
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+
+    @if (!string.IsNullOrEmpty(_status))
+    {
+        <MudAlert Severity="Severity.Info">@_status</MudAlert>
+    }
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+
+    @if (_weather != null)
+    {
+        <MudPaper Class="pa-4 mt-4" Elevation="8">
+            <MudText Typo="Typo.h5" Align="Align.Center">
+                Today's Weather in @_weather.Name
+            </MudText>
+
+            <MudStack Row="true"
+                      Justify="Justify.SpaceAround"
+                      Class="mt-4">
+
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudText>Temperature</MudText>
+                    <MudText Typo="Typo.h6">@_weather.Main.Temp °C</MudText>
+                </MudStack>
+
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudText>Humidity</MudText>
+                    <MudText Typo="Typo.h6">@_weather.Main.Humidity %</MudText>
+                </MudStack>
+
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudText>Wind Speed</MudText>
+                    <MudText Typo="Typo.h6">@_weather.Wind.Speed m/s</MudText>
+                </MudStack>
+
+            </MudStack>
+        </MudPaper>
+    }
+</MudPaper>
+
+@code {
+
+    string _city = "";
+    string _status = "";
+    string _error = "";
+
+    WeatherResponse? _weather;
+
+    async Task GetByCityAsync()
+    {
+        _error = "";
+        _status = $"Fetching weather for {_city}...";
+
+        try
+        {
+            _weather = await WeatherService.GetByCityAsync(_city);
+
+            if (_weather == null)
+            {
+                _error = "No weather data found.";
+            }
+            else
+            {
+                _status = $"Showing weather for {_weather.Name}.";
+
+                // 🔹 Save recent search if logged in
+                if (Auth.IsLoggedIn)
+                {
+                    var cityName = !string.IsNullOrWhiteSpace(_weather.Name)
+                        ? _weather.Name
+                        : _city;
+
+                    await RecentSearchService.AddAsync(cityName);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+
+
+    async Task GetByLocationAsync()
+    {
+        _error = "";
+        _status = "Getting your current location...";
+
+        try
+        {
+            var pos = await JS.InvokeAsync<GeoPosition>(
+                "weatherLocation.getCurrentPosition");
+
+            _status = "Fetching weather for your location...";
+
+            _weather = await WeatherService.GetByCoordsAsync(
+                pos.Latitude, pos.Longitude);
+
+            if (_weather == null)
+            {
+                _error = "No weather data found.";
+            }
+            else
+            {
+                _status = $"Showing weather for {_weather.Name}.";
+
+                // 🔹 Save recent search if logged in
+                if (Auth.IsLoggedIn)
+                {
+                    await RecentSearchService.AddAsync(_weather.Name);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = "Location error: " + ex.Message;
+        }
+    }
+
+    }
+
+
+    
+
+}

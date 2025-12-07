@@ -1,0 +1,26 @@
+﻿@page "/profile"
+@inject AuthService Auth
+
+@if (!Auth.IsLoggedIn || Auth.CurrentProfile is null)
+{
+    <MudAlert Severity="Severity.Warning" Class="mt-6">
+        Please login to view your profile.
+    </MudAlert>
+}
+else
+{
+    <MudPaper Class="mx-auto mt-8 pa-6" MaxWidth="600px" Elevation="10">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudAvatar Size="Size.Large">
+                @(Auth.CurrentProfile.FullName?.FirstOrDefault('U') ?? 'U')
+            </MudAvatar>
+            <MudText Typo="Typo.h5">@Auth.CurrentProfile.FullName</MudText>
+        </MudStack>
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.subtitle1">
+            Email: @Auth.CurrentProfile.Email
+        </MudText>
+    </MudPaper>
+}
