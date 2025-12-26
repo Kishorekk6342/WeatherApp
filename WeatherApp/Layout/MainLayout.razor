@@ -1,97 +1,171 @@
 ﻿@inherits LayoutComponentBase
-@inject AuthService Auth
+
+@using WeatherApp.Models
+@using WeatherApp.Services
+
+@inject JsSupabaseAuthService JsAuth
+@inject AuthenticatedSupabaseClient AuthClient
+@inject ProfileStateService ProfileState
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
-
 
 <MudThemeProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
+
+    <!-- TOP APP BAR -->
     <MudAppBar Elevation="4" Color="Color.Primary">
-        <!-- LEFT: 3-line icon to toggle left drawer -->
+
+        <!-- LEFT: Menu -->
         <MudIconButton Icon="@Icons.Material.Filled.Menu"
                        Color="Color.Inherit"
                        Edge="Edge.Start"
                        OnClick="@ToggleDrawer" />
 
-        <!-- CENTER: project name -->
         <MudSpacer />
+
+        <!-- CENTER: App Title -->
         <MudText Typo="Typo.h6" Class="font-weight-bold">
             Weather App
         </MudText>
+
         <MudSpacer />
 
-        <!-- RIGHT: login / profile -->
-        @if (!Auth.IsLoggedIn)
+        <!-- RIGHT: Auth Section -->
+        @if (_currentUser == null)
         {
-            <MudButton Variant="Variant.Text" Color="Color.Inherit"
-                       OnClick="@(()=>Nav.NavigateTo("/login"))">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       OnClick="@(() => Nav.NavigateTo("/login"))">
                 Login
             </MudButton>
         }
-        else if (Auth.CurrentProfile is not null)
+        else
         {
-            var displayName = Auth.CurrentProfile.FullName ?? Auth.CurrentUser?.Email ?? "User";
+            var displayName = !string.IsNullOrWhiteSpace(ProfileState.Username)
+            ? ProfileState.Username
+            : _currentUser.Email;
 
-            <MudAvatar Size="Size.Medium">
-                @displayName.FirstOrDefault('U')
-            </MudAvatar>
-            <MudText Class="ml-2 mr-2">@displayName</MudText>
-            <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+            <!-- Avatar -->
+            @if (!string.IsNullOrWhiteSpace(ProfileState.AvatarUrl))
+            {
+                <MudAvatar Size="Size.Medium" Class="mr-2">
+                    <MudImage Src="@ProfileState.AvatarUrl" Alt="Profile" />
+                </MudAvatar>
+            }
+            else
+            {
+                <MudAvatar Size="Size.Medium" Class="mr-2">
+                    @displayName.FirstOrDefault()
+                </MudAvatar>
+            }
+
+            <!-- Name -->
+            <MudText Class="mr-3">@displayName</MudText>
+
+            <!-- Logout -->
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
                        OnClick="@LogoutAsync">
                 Logout
             </MudButton>
         }
-
     </MudAppBar>
 
-    <!-- LEFT DRAWER: responsive, not dimming background -->
+    <!-- LEFT DRAWER -->
     <MudDrawer @bind-Open="_drawerOpen"
                Anchor="Anchor.Left"
-               ClipMode="DrawerClipMode.Never"
-               Variant="DrawerVariant.Responsive">
+               Variant="DrawerVariant.Responsive"
+               ClipMode="DrawerClipMode.Never">
+
         <MudNavMenu>
             <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">
                 Home
             </MudNavLink>
 
-           
-
-            @if (Auth.IsLoggedIn)
+            @if (_currentUser != null)
             {
                 <MudNavLink Href="/profile" Icon="@Icons.Material.Filled.Person">
                     Profile
                 </MudNavLink>
+
                 <MudNavLink Href="/recent-searches" Icon="@Icons.Material.Filled.History">
                     Recent Searches
                 </MudNavLink>
             }
-            
         </MudNavMenu>
     </MudDrawer>
 
+    <!-- MAIN CONTENT -->
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
             @Body
         </MudContainer>
     </MudMainContent>
+
 </MudLayout>
 
 @code {
-    // drawer starts OPEN on the left
-    bool _drawerOpen = false;
+    private bool _drawerOpen;
+    private UserDto? _currentUser;
 
-    void ToggleDrawer() => _drawerOpen = !_drawerOpen;
-
-    async Task LogoutAsync()
+    protected override async Task OnInitializedAsync()
     {
-        await Auth.LogoutAsync();
+        // 🔔 Listen for profile changes
+        ProfileState.OnChange += StateHasChanged;
 
-        Snackbar.Add("Logout successful", Severity.Success);
-
-        Nav.NavigateTo("/");
+        await LoadUserAndProfileAsync();
     }
 
+    public void Dispose()
+    {
+        // 🔕 Prevent memory leaks
+        ProfileState.OnChange -= StateHasChanged;
+    }
+
+    private async Task LoadUserAndProfileAsync()
+    {
+        try
+        {
+            _currentUser = await JsAuth.GetCurrentUserAsync();
+            if (_currentUser == null)
+                return;
+
+            var client = await AuthClient.GetAuthenticatedClientAsync();
+
+            var response = await client
+                .From<ProfileModel>()
+                .Filter("id", Supabase.Postgrest.Constants.Operator.Equals, _currentUser.Id)
+                .Get();
+
+            var profile = response.Models.FirstOrDefault();
+            if (profile != null)
+            {
+                // ✅ Push profile into shared state
+                ProfileState.SetProfile(profile.Username, profile.AvatarUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Layout load error: {ex.Message}");
+        }
+    }
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private async Task LogoutAsync()
+    {
+        await JsAuth.LogoutAsync();
+
+        _currentUser = null;
+        ProfileState.SetProfile(null, null);
+
+        Snackbar.Add("Logout successful", Severity.Success);
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
 }

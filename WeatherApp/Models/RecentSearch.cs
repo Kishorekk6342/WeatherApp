@@ -1,20 +1,21 @@
 ﻿using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 
-namespace WeatherApp.Models;
-
-[Table("recent_searches")]
-public class RecentSearch : BaseModel
+namespace WeatherApp.Models
 {
-    [PrimaryKey("id")]
-    public Guid Id { get; set; }
+    [Table("recent_searches")]
+    public class RecentSearch : BaseModel
+    {
+        [PrimaryKey("id", false)]
+        public Guid Id { get; set; }
 
-    [Column("user_id")]
-    public Guid UserId { get; set; }
+        [Column("city")]
+        public string City { get; set; } = string.Empty;
 
-    [Column("city")]
-    public string City { get; set; } = string.Empty;
+        [Column("created_at")]
+        public DateTime CreatedAt { get; set; }
 
-    [Column("created_at")]
-    public DateTime CreatedAt { get; set; }
+        [Column("user_id")]
+        public string UserId { get; set; } = string.Empty;
+    }
 }

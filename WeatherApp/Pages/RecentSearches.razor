@@ -1,27 +1,27 @@
 ﻿@page "/recent-searches"
 @inject RecentSearchService RecentSearchService
-@inject AuthService Auth
+@inject JsSupabaseAuthService JsAuth
 
 <MudPaper Class="mx-auto mt-8 pa-6" MaxWidth="800px" Elevation="10">
     <MudText Typo="Typo.h4" Class="mb-4">
         Recent Searches
     </MudText>
 
-    @if (!Auth.IsLoggedIn)
+    @if (_loading)
+    {
+        <!-- NO full-screen animation, just lightweight loader -->
+        <MudProgressLinear Indeterminate="true" Class="mb-2" />
+    }
+    else if (_currentUser == null)
     {
         <MudAlert Severity="Severity.Info">
             Please log in to see your recent searches.
         </MudAlert>
     }
-    else if (_loading)
-    {
-        <MudProgressLinear Indeterminate="true" Class="mb-2" />
-        <MudText>Loading...</MudText>
-    }
     else if (_items.Count == 0)
     {
         <MudAlert Severity="Severity.Info">
-            No recent searches yet. Search for a city on the home page after logging in.
+            No recent searches yet. Search for a city on the home page.
         </MudAlert>
     }
     else
@@ -41,7 +41,7 @@
                     <MudButton Color="Color.Error"
                                Variant="Variant.Outlined"
                                Size="Size.Small"
-                               OnClick="@(()=>DeleteAsync(context.Id))">
+                               OnClick="@(() => DeleteAsync(context.Id))">
                         Delete
                     </MudButton>
                 </MudTd>
@@ -50,19 +50,25 @@
     }
 </MudPaper>
 
+
 @code {
-    bool _loading = true;
-    List<RecentSearch> _items = new();
+    private bool _loading = true;
+    private UserDto? _currentUser;
+    private List<RecentSearch> _items = new();
 
     protected override async Task OnInitializedAsync()
     {
-        if (Auth.IsLoggedIn)
+        _currentUser = await JsAuth.GetCurrentUserAsync();
+
+        if (_currentUser != null)
         {
             _items = await RecentSearchService.GetAsync();
+
         }
 
         _loading = false;
     }
+
 
     private async Task DeleteAsync(Guid id)
     {

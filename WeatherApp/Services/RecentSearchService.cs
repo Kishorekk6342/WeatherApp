@@ -1,62 +1,60 @@
-﻿using WeatherApp.Models;
+﻿using Supabase;
+using WeatherApp.Models;
 
-namespace WeatherApp.Services;
-
-public class RecentSearchService
+namespace WeatherApp.Services
 {
-    private readonly AuthService _auth;
-
-    public RecentSearchService(AuthService auth)
+    public class RecentSearchService
     {
-        _auth = auth;
-    }
+        private readonly AuthenticatedSupabaseClient _authClient;
 
-    public bool CanUse => _auth.IsLoggedIn && _auth.CurrentUser != null;
-
-    public async Task AddAsync(string city)
-    {
-        if (!CanUse || string.IsNullOrWhiteSpace(city))
-            return;
-
-        var userId = Guid.Parse(_auth.CurrentUser!.Id);
-
-        var item = new RecentSearch
+        public RecentSearchService(AuthenticatedSupabaseClient authClient)
         {
-            UserId = userId,
-            City = city.Trim(),
-            CreatedAt = DateTime.UtcNow   // ✅ ADD THIS LINE
-        };
+            _authClient = authClient;
+        }
+
+        public async Task<List<RecentSearch>> GetAsync()
+        {
+            var client = await _authClient.GetAuthenticatedClientAsync();
+
+            var response = await client
+                .From<RecentSearch>()
+                .Order("created_at", Supabase.Postgrest.Constants.Ordering.Descending)
+                .Get();
+
+            return response.Models;
+        }
+
+        public async Task AddAsync(string city)
+        {
+            var client = await _authClient.GetAuthenticatedClientAsync();
+            var user = client.Auth.CurrentUser;
+
+            if (user == null)
+                return;
+
+            var search = new RecentSearch
+            {
+                Id = Guid.NewGuid(),
+                City = city,
+                CreatedAt = DateTime.UtcNow,
+                UserId = user.Id
+            };
+
+            await client
+                .From<RecentSearch>()
+                .Insert(search);
+        }
+
+        public async Task DeleteAsync(Guid id)
+        {
+            var client = await _authClient.GetAuthenticatedClientAsync();
+
+            await client
+                .From<RecentSearch>()
+                .Filter("id", Supabase.Postgrest.Constants.Operator.Equals, id.ToString())
+                .Delete();
+        }
 
 
-        await _auth.Client.From<RecentSearch>().Insert(item);
     }
-
-    public async Task<List<RecentSearch>> GetAsync()
-    {
-        if (!CanUse)
-            return new List<RecentSearch>();
-
-        var userId = Guid.Parse(_auth.CurrentUser!.Id);
-
-        var result = await _auth.Client
-            .From<RecentSearch>()
-            .Where(r => r.UserId == userId)
-            .Order(r => r.CreatedAt, Supabase.Postgrest.Constants.Ordering.Descending)
-            .Get();
-
-        return result.Models;
-    }
-
-    public async Task DeleteAsync(Guid id)
-    {
-        if (!CanUse)
-            return;
-
-        // RLS ensures user can delete only their own row
-        await _auth.Client
-            .From<RecentSearch>()
-            .Filter("id", Supabase.Postgrest.Constants.Operator.Equals, id.ToString())
-            .Delete();
-    }
-
 }

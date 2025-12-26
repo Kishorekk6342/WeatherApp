@@ -1,5 +1,5 @@
 ﻿@page "/register"
-@inject AuthService Auth
+@inject JsSupabaseAuthService JsAuth
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 
@@ -8,22 +8,27 @@
         Create Account
     </MudText>
 
-    <MudTextField @bind-Value="_fullName"
-                  Label="Full Name"
+    <!-- USERNAME -->
+    <MudTextField @bind-Value="_username"
+                  Label="Username"
                   Variant="Variant.Outlined"
                   Required="true"
-                  RequiredError="Full name is required."
+                  RequiredError="Username is required."
                   FullWidth="true" />
 
+    <!-- EMAIL -->
     <MudTextField @bind-Value="_email"
                   Label="Email"
                   Variant="Variant.Outlined"
                   InputType="InputType.Email"
                   Required="true"
                   RequiredError="Email is required."
+                  Validation="@(new Func<string, string>(ValidateEmail))"
                   FullWidth="true"
                   Class="mt-2" />
 
+
+    <!-- PASSWORD -->
     <MudTextField @bind-Value="_password"
                   Label="Password"
                   Variant="Variant.Outlined"
@@ -33,6 +38,7 @@
                   FullWidth="true"
                   Class="mt-2" />
 
+    <!-- CONFIRM PASSWORD -->
     <MudTextField @bind-Value="_confirm"
                   Label="Confirm Password"
                   Variant="Variant.Outlined"
@@ -44,19 +50,15 @@
 
     @if (!string.IsNullOrWhiteSpace(_error))
     {
-        <MudText Color="Color.Error"
-                 Align="Align.Center"
-                 Class="mt-3">
+        <MudText Color="Color.Error" Align="Align.Center" Class="mt-3">
             @_error
         </MudText>
     }
 
-    @if (!string.IsNullOrWhiteSpace(SuccessMessage))
+    @if (!string.IsNullOrWhiteSpace(_successMessage))
     {
-        <MudText Color="Color.Success"
-                 Align="Align.Center"
-                 Class="mt-3">
-            @SuccessMessage
+        <MudText Color="Color.Success" Align="Align.Center" Class="mt-3">
+            @_successMessage
         </MudText>
     }
 
@@ -76,26 +78,42 @@
 </MudPaper>
 
 @code {
-    string _fullName = string.Empty;
-    string _email = string.Empty;
-    string _password = string.Empty;
-    string _confirm = string.Empty;
-    string _error = string.Empty;
-    bool _busy = false;
-    string SuccessMessage = string.Empty;
+    private string _username = string.Empty;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string _confirm = string.Empty;
+    private string _error = string.Empty;
+    private string _successMessage = string.Empty;
+    private bool _busy = false;
+
+    private string ValidateEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return "Email is required";
+
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email ? null : "Invalid email format";
+        }
+        catch
+        {
+            return "Invalid email format";
+        }
+    }
+
 
     private async Task OnRegisterAsync()
     {
         _error = string.Empty;
-        SuccessMessage = string.Empty;
+        _successMessage = string.Empty;
 
-        // basic validation before calling Supabase
-        if (string.IsNullOrWhiteSpace(_fullName) ||
+        if (string.IsNullOrWhiteSpace(_username) ||
             string.IsNullOrWhiteSpace(_email) ||
             string.IsNullOrWhiteSpace(_password) ||
             string.IsNullOrWhiteSpace(_confirm))
         {
-            _error = "Please enter your full name, email, password and confirm password.";
+            _error = "Please fill all required fields.";
             return;
         }
 
@@ -115,42 +133,42 @@
 
         try
         {
-            // if your RegisterAsync returns Task instead of Task<bool>,
-            // just do: await Auth.RegisterAsync(_email, _password, _fullName);
-            bool ok = await Auth.RegisterAsync(_email, _password, _fullName);
+            // Call the JS registration function
+            var result = await JsAuth.RegisterAsync(_email, _password, _username);
 
-            if (!ok)
+            if (result)
             {
-                _error = "Could not create your account. Please try again.";
-                return;
-            }
+                _successMessage = "✅ Account created! Please check your email to verify before logging in.";
+                Snackbar.Add("Registration successful! ", Severity.Success);
 
-            // snackbar + info text
-            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
-            Snackbar.Configuration.SnackbarVariant = Variant.Filled;
-            Snackbar.Add("Registration successful!", Severity.Success);
-
-            SuccessMessage = "Verification email sent. Please confirm your email to login.";
-
-            await Task.Delay(2000);
-            Nav.NavigateTo("/login");
-        }
-        catch (Exception ex)
-        {
-            var msg = ex.Message ?? string.Empty;
-
-            if (msg.Contains("anonymous_provider_disabled", StringComparison.OrdinalIgnoreCase))
-            {
-                _error = "Anonymous sign-ins are disabled. Please register with email and password.";
-            }
-            else if (msg.Contains("weak_password", StringComparison.OrdinalIgnoreCase))
-            {
-                _error = "Password is too weak. It should be at least 6 characters.";
+                // Wait a bit then redirect
+                await Task.Delay(2000);
+                Nav.NavigateTo("/login");
             }
             else
             {
-                _error = "Something went wrong while creating your account. Please try again.";
+                _error = "Could not create your account. Please try again.";
             }
+        }
+        catch (Exception ex)
+        {
+            var errorMsg = ex.Message.ToLower();
+
+            if (errorMsg.Contains("already") || errorMsg.Contains("exists"))
+            {
+                _error = "This email is already registered.";
+            }
+            else if (errorMsg.Contains("invalid"))
+            {
+                _error = "Please provide a valid email address.";
+            }
+            else
+            {
+                _error = $"Registration failed: {ex.Message}";
+            }
+
+            Console.WriteLine($"❌ Registration error: {ex.Message}");
+            Snackbar.Add(_error, Severity.Error);
         }
         finally
         {

@@ -1,5 +1,5 @@
 ﻿@page "/login"
-@inject AuthService Auth
+@inject JsSupabaseAuthService JsAuth
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 
@@ -14,8 +14,7 @@
                   InputType="InputType.Email"
                   Required="true"
                   RequiredError="Email is required."
-                  FullWidth="true"
-                  InputAttributes="@(new Dictionary<string, object> { { "autocomplete", "email" } })" />
+                  FullWidth="true" />
 
     <MudTextField @bind-Value="_password"
                   Label="Password"
@@ -24,14 +23,11 @@
                   Required="true"
                   RequiredError="Password is required."
                   FullWidth="true"
-                  Class="mt-2"
-                  InputAttributes="@(new Dictionary<string, object> { { "autocomplete", "current-password" } })" />
+                  Class="mt-2" />
 
     @if (!string.IsNullOrWhiteSpace(_error))
     {
-        <MudText Color="Color.Error"
-                 Align="Align.Center"
-                 Class="mt-3">
+        <MudText Color="Color.Error" Align="Align.Center" Class="mt-3">
             @_error
         </MudText>
     }
@@ -52,17 +48,16 @@
 </MudPaper>
 
 @code {
-    string _email = string.Empty;
-    string _password = string.Empty;
-    string _error = string.Empty;
-    bool _busy = false;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string _error = string.Empty;
+    private bool _busy = false;
 
     private async Task OnLoginAsync()
     {
         _error = string.Empty;
 
-        if (string.IsNullOrWhiteSpace(_email) ||
-            string.IsNullOrWhiteSpace(_password))
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
         {
             _error = "Please enter your email and password.";
             return;
@@ -72,39 +67,22 @@
 
         try
         {
-            // If your LoginAsync returns Task instead of Task<bool>,
-            // just call: await Auth.LoginAsync(_email, _password);
-            bool ok = await Auth.LoginAsync(_email, _password);
+            var user = await JsAuth.LoginAsync(_email, _password);
 
-            if (!ok)
+            if (user == null)
             {
                 _error = "Invalid email or password.";
                 return;
             }
 
-            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
-            Snackbar.Configuration.SnackbarVariant = Variant.Filled;
             Snackbar.Add("Login successful!", Severity.Success);
-
-            Nav.NavigateTo("/");
+            Nav.NavigateTo("/", forceLoad: true);
         }
         catch (Exception ex)
         {
-            var msg = ex.Message ?? string.Empty;
-
-            if (msg.Contains("email_not_confirmed", StringComparison.OrdinalIgnoreCase))
-            {
-                _error = "Please verify your email address before logging in. Check your inbox for the verification email.";
-            }
-            else if (msg.Contains("invalid_credentials", StringComparison.OrdinalIgnoreCase))
-            {
-                // covers: user not found OR wrong password
-                _error = "Invalid email or password.";
-            }
-            else
-            {
-                _error = "Could not log you in. Please try again.";
-            }
+            _error = ex.Message.Contains("Invalid login credentials", StringComparison.OrdinalIgnoreCase)
+                ? "Invalid email or password."
+                : "Login failed. Please try again.";
         }
         finally
         {
