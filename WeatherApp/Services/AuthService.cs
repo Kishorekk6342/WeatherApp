@@ -11,6 +11,7 @@ using Supabase.Postgrest.Exceptions;            // PostgrestException
 using static Supabase.Postgrest.Constants;      // Operator enum
 using WeatherApp.Models;
 
+
 namespace WeatherApp.Services
 {
     public class ProfileStateService
@@ -52,21 +53,13 @@ namespace WeatherApp.Services
         public string? LastError { get; private set; }
 
         // TODO: keep keys out of source for production
-        private const string SupabaseUrl = "https://ukibpplazxsuqhildshh.supabase.co";
-        private const string SupabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVraWJwcGxhenhzdXFoaWxkc2hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3MjA2NTEsImV4cCI6MjA4MDI5NjY1MX0.MjZ7OAt7BgYNzUosxi4cAMdMPRt6liAGPgMNV3U_1p0";
-        public bool IsInitialized { get; private set; }
+         public bool IsInitialized { get; private set; }
 
-        public AuthService()
+        public AuthService(Supabase.Client client)
         {
-            var options = new SupabaseOptions
-            {
-                AutoRefreshToken = true,
-                AutoConnectRealtime = false
-            };
-
-            _client = new Supabase.Client(SupabaseUrl, SupabaseAnonKey, options);
-            // ❌ DO NOT call InitializeAsync here
+            _client = client;
         }
+
 
 
 

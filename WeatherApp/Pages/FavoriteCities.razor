@@ -1,0 +1,154 @@
+﻿@page "/favorites"
+@inject FavoriteCityService FavoriteCityService
+@inject WeatherService WeatherService
+@inject JsSupabaseAuthService JsAuth
+@inject ISnackbar Snackbar
+
+
+<MudPaper Class="mx-auto mt-8 pa-6" MaxWidth="900px">
+
+    <MudText Typo="Typo.h4" Class="mb-4">
+        Favorite Cities
+    </MudText>
+
+    @if (_user == null)
+    {
+        <MudAlert Severity="Severity.Info">
+            Please log in to view your favorite cities.
+        </MudAlert>
+    }
+    else if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_items.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info">
+            No favorite cities added yet.
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid Spacing="3">
+
+            @foreach (var item in _items)
+            {
+                <MudItem xs="12" sm="6" md="4">
+
+                    <MudCard Elevation="4" Class="pa-3">
+
+                        <!-- City name -->
+                        <MudText Typo="Typo.h6" Class="mb-2 font-weight-bold">
+                            @item.City
+                        </MudText>
+
+                        <!-- Weather -->
+                        @if (_weatherMap.TryGetValue(item.City, out var weather))
+                        {
+                            <MudStack Spacing="1">
+
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Thermostat"
+                                             Color="Color.Error" />
+                                    <MudText>@weather.Main.Temp °C</MudText>
+                                </MudStack>
+
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.WaterDrop"
+                                             Color="Color.Info" />
+                                    <MudText>@weather.Main.Humidity %</MudText>
+                                </MudStack>
+
+                            </MudStack>
+                        }
+
+                        <!-- Action -->
+                        <MudDivider Class="my-2" />
+
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Refresh"
+                                       OnClick="@(() => RefreshWeather(item.City))">
+                                Refresh
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Error"
+                                       StartIcon="@Icons.Material.Filled.Delete"
+                                       OnClick="@(() => Remove(item.Id))">
+                                Remove
+                            </MudButton>
+
+                        </MudStack>
+
+
+                    </MudCard>
+
+                </MudItem>
+            }
+
+        </MudGrid>
+    }
+
+</MudPaper>
+
+@code {
+    private List<FavoriteCity> _items = new();
+    private Dictionary<string, WeatherResponse> _weatherMap = new();
+    private bool _loading = true;
+    private UserDto? _user;
+
+    private async Task RefreshWeather(string city)
+    {
+        var weather = await WeatherService.GetByCityAsync(city);
+
+        if (weather != null)
+        {
+            _weatherMap[city] = weather;
+            Snackbar.Add($"Weather updated for {city}.", Severity.Success);
+            StateHasChanged();
+        }
+        else
+        {
+            Snackbar.Add($"Failed to refresh weather for {city}.", Severity.Error);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _user = await JsAuth.GetCurrentUserAsync();
+
+        if (_user == null)
+        {
+            _loading = false;
+            return;
+        }
+
+        _items = await FavoriteCityService.GetAsync();
+
+        var tasks = _items.Select(async city =>
+        {
+            var weather = await WeatherService.GetByCityAsync(city.City);
+            if (weather != null)
+                _weatherMap[city.City] = weather;
+        });
+
+        await Task.WhenAll(tasks);
+
+        _loading = false;
+    }
+
+
+    private async Task Remove(Guid id)
+    {
+        var city = _items.First(x => x.Id == id).City;
+
+        await FavoriteCityService.RemoveAsync(id);
+        _items.RemoveAll(x => x.Id == id);
+
+        Snackbar.Add($"{city} removed from favorites", Severity.Warning);
+    }
+
+}
