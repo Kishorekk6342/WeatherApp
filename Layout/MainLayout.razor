@@ -166,12 +166,15 @@
 
     private async Task LogoutAsync()
     {
-        await JsAuth.LogoutAsync();
+        await JsAuth.LogoutAsync(); // Supabase sign out
 
         _currentUser = null;
         ProfileState.SetProfile(null, null);
 
         Snackbar.Add("Logout successful", Severity.Success);
-        Nav.NavigateTo("/login", forceLoad: true);
+
+        // IMPORTANT: client-side navigation ONLY
+        Nav.NavigateTo("/login", replace: true);
     }
+
 }
