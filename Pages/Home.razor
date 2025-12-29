@@ -203,24 +203,18 @@
 
         try
         {
-            var pos = await JS.InvokeAsync<GeoPosition>(
+            var position = await JS.InvokeAsync<GeoPosition>(
                 "weatherLocation.getCurrentPosition");
 
-            _weather = await WeatherService.GetByCoordsAsync(
-                pos.Latitude, pos.Longitude);
+            if (position == null)
+                throw new Exception("Location not available");
 
-            if (_weather == null)
-            {
-                _error = "No weather data found.";
-                return;
-            }
+            // 🔑 Reverse geocode → city
+            var city = await WeatherService.GetCityFromCoordinates(position);
 
-            _status = $"Showing weather for {_weather.Name}.";
-            _history = await WeatherHistoryService.GetLast7Days(_weather.Name);
-
-            var user = await JsAuth.GetCurrentUserAsync();
-            if (user != null)
-                await RecentSearchService.AddAsync(_weather.Name);
+            // 🔑 Load weather using EXISTING method
+            _city = city;
+            await GetByCityAsync();
         }
         catch (Exception ex)
         {
@@ -229,13 +223,14 @@
     }
 
 
+
+
     private async Task AddToFavoritesAsync()
     {
         if (_weather == null)
             return;
 
         var city = _weather.Name;
-
         var exists = await FavoriteCityService.ExistsAsync(city);
 
         if (exists)
@@ -247,6 +242,7 @@
         await FavoriteCityService.AddAsync(city);
         Snackbar.Add($"{city} added to favorites successfully!", Severity.Success);
     }
+
 
 
     protected override async Task OnInitializedAsync()

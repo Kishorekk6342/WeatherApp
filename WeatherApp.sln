@@ -3,9 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36705.20 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Weatherapp", "Weatherapp\Weatherapp.csproj", "{E3F5EC97-0BB2-4B9C-AF9B-DF98D1F18A8E}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Weatherapp.Client", "Weatherapp.Client\Weatherapp.Client.csproj", "{D519B77D-C875-475D-A11F-9DD047BD705E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WeatherApp", "WeatherApp.csproj", "{35F2F483-4D57-F78B-D3BC-101A6B166E61}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,19 +11,15 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{E3F5EC97-0BB2-4B9C-AF9B-DF98D1F18A8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E3F5EC97-0BB2-4B9C-AF9B-DF98D1F18A8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E3F5EC97-0BB2-4B9C-AF9B-DF98D1F18A8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E3F5EC97-0BB2-4B9C-AF9B-DF98D1F18A8E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D519B77D-C875-475D-A11F-9DD047BD705E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D519B77D-C875-475D-A11F-9DD047BD705E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D519B77D-C875-475D-A11F-9DD047BD705E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D519B77D-C875-475D-A11F-9DD047BD705E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35F2F483-4D57-F78B-D3BC-101A6B166E61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35F2F483-4D57-F78B-D3BC-101A6B166E61}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35F2F483-4D57-F78B-D3BC-101A6B166E61}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35F2F483-4D57-F78B-D3BC-101A6B166E61}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {3DAC895C-FFB6-4EEE-88BD-C2068CD41985}
+		SolutionGuid = {B03F650A-9DD3-4EE4-B68B-404F0AD16FCD}
 	EndGlobalSection
 EndGlobal

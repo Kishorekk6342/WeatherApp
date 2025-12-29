@@ -38,7 +38,7 @@ public class WeatherService
 
         return result;
     }
-
+   
     public async Task<WeatherResponse?> GetByCoordsAsync(double lat, double lon)
     {
         var url =
@@ -56,6 +56,17 @@ public class WeatherService
         return result;
     }
 
+    public async Task<string> GetCityFromCoordinates(GeoPosition position)
+    {
+        var url =
+            $"https://api.openweathermap.org/geo/1.0/reverse" +
+            $"?lat={position.Latitude}&lon={position.Longitude}&limit=1&appid={_apiKey}";
+
+        var response =
+            await _http.GetFromJsonAsync<List<GeoLocationResult>>(url);
+
+        return response?.FirstOrDefault()?.Name ?? "Unknown";
+    }
     private async Task SaveTodayWeather(WeatherResponse data)
     {
         var today = DateTime.UtcNow.Date;
