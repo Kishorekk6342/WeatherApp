@@ -1,7 +1,290 @@
 ﻿@page "/"
+@inject WeatherService WeatherService
+@inject WeatherHistoryService WeatherHistoryService
+@inject IJSRuntime JS
+@inject JsSupabaseAuthService JsAuth
+@inject RecentSearchService RecentSearchService
+@inject ISnackbar Snackbar
+@inject FavoriteCityService FavoriteCityService
 
-<PageTitle>Home</PageTitle>
+@using WeatherApp.Models
 
-<h1>Hello, world!</h1>
+<MudPaper Class="mx-auto mt-8 pa-6" MaxWidth="800px" Elevation="10">
 
-Welcome to your new app.
+    <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4">
+        Weather Forecast
+    </MudText>
+
+    <MudText Align="Align.Center" Class="mb-4">
+        Choose how you want to get the weather:
+    </MudText>
+
+    <MudGrid Class="mb-4" Justify="Justify.Center" Spacing="3">
+
+        <!-- Current location -->
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4 d-flex flex-column align-center" Elevation="4">
+                <MudIcon Icon="@Icons.Material.Filled.MyLocation" Size="Size.Large" Class="mb-2" />
+                <MudText Typo="Typo.subtitle1" Align="Align.Center" Class="mb-2">
+                    Use your current location
+                </MudText>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           OnClick="GetByLocationAsync">
+                    USE CURRENT LOCATION
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+
+        <!-- OR -->
+        <MudItem xs="12" md="2" Class="d-flex justify-center align-center">
+            <MudChip T="string" Variant="Variant.Outlined">OR</MudChip>
+        </MudItem>
+
+        <!-- City search -->
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4" Elevation="4">
+                <MudText Typo="Typo.subtitle1" Align="Align.Center" Class="mb-2">
+                    Search by city name
+                </MudText>
+
+                <MudStack Spacing="2">
+                    <MudAutocomplete T="string"
+                                     @bind-Value="_city"
+                                     Label="Enter City Name"
+                                     Variant="Variant.Outlined"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.LocationCity"
+                                     SearchFunc="SearchCities"
+                                     MinCharacters="2"
+                                     Clearable="true"
+                                     Dense="true"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="true" />
+
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Secondary"
+                               FullWidth="true"
+                               Disabled="@string.IsNullOrWhiteSpace(_city)"
+                               OnClick="GetByCityAsync">
+                        GET WEATHER
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    @if (!string.IsNullOrEmpty(_status))
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-2">@_status</MudAlert>
+    }
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-2">@_error</MudAlert>
+    }
+
+    @if (_weather != null)
+    {
+        <MudPaper Class="pa-4 mt-4" Elevation="8">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+
+                <MudText Typo="Typo.h5">
+                    Today's Weather in @_weather.Name
+                </MudText>
+
+                @if (_currentUser != null)
+                {
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.Star"
+                               OnClick="AddToFavoritesAsync">
+                        Add to Favorites
+                    </MudButton>
+                }
+
+            </MudStack>
+
+            <MudStack Row="true" Justify="Justify.SpaceAround" Class="mt-4">
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudText>Temperature</MudText>
+                    <MudText Typo="Typo.h6">@_weather.Main.Temp °C</MudText>
+                </MudStack>
+
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudText>Humidity</MudText>
+                    <MudText Typo="Typo.h6">@_weather.Main.Humidity %</MudText>
+                </MudStack>
+
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudText>Wind Speed</MudText>
+                    <MudText Typo="Typo.h6">@_weather.Wind.Speed m/s</MudText>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    }
+
+    @if (_history != null && _history.Any())
+    {
+        <MudPaper Class="pa-4 mt-6" Elevation="6">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                Past 7 Days Weather
+            </MudText>
+
+            <MudTable Items="_history" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Date</MudTh>
+                    <MudTh>Min (°C)</MudTh>
+                    <MudTh>Max (°C)</MudTh>
+                    <MudTh>Condition</MudTh>
+                    <MudTh>Humidity (%)</MudTh>
+                </HeaderContent>
+
+                <RowTemplate Context="context">
+                    <MudTd>@context.WeatherDate.ToString("dd MMM")</MudTd>
+                    <MudTd>@context.Temp_Min</MudTd>
+                    <MudTd>@context.Temp_Max</MudTd>
+                    <MudTd>@context.Condition</MudTd>
+                    <MudTd>@context.Humidity</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+    
+
+
+</MudPaper>
+
+@code {
+
+    string _city = "";
+    string _status = "";
+    string _error = "";
+
+    WeatherResponse? _weather;
+    List<WeatherHistory>? _history;
+    private UserDto? _currentUser;
+
+    async Task GetByCityAsync()
+    {
+        _error = "";
+        _status = $"Fetching weather for {_city}...";
+
+        try
+        {
+            _weather = await WeatherService.GetByCityAsync(_city);
+
+            if (_weather == null)
+            {
+                _error = "No weather data found.";
+                return;
+            }
+
+            _status = $"Showing weather for {_weather.Name}.";
+            _history = await WeatherHistoryService.GetLast7Days(_weather.Name);
+
+            var user = await JsAuth.GetCurrentUserAsync();
+            if (user != null)
+                await RecentSearchService.AddAsync(_weather.Name);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    async Task GetByLocationAsync()
+    {
+        _error = "";
+        _status = "Getting your current location...";
+
+        try
+        {
+            var pos = await JS.InvokeAsync<GeoPosition>(
+                "weatherLocation.getCurrentPosition");
+
+            _weather = await WeatherService.GetByCoordsAsync(
+                pos.Latitude, pos.Longitude);
+
+            if (_weather == null)
+            {
+                _error = "No weather data found.";
+                return;
+            }
+
+            _status = $"Showing weather for {_weather.Name}.";
+            _history = await WeatherHistoryService.GetLast7Days(_weather.Name);
+
+            var user = await JsAuth.GetCurrentUserAsync();
+            if (user != null)
+                await RecentSearchService.AddAsync(_weather.Name);
+        }
+        catch (Exception ex)
+        {
+            _error = "Location error: " + ex.Message;
+        }
+    }
+
+
+    private async Task AddToFavoritesAsync()
+    {
+        if (_weather == null)
+            return;
+
+        var city = _weather.Name;
+
+        var exists = await FavoriteCityService.ExistsAsync(city);
+
+        if (exists)
+        {
+            Snackbar.Add($"{city} is already in your favorites.", Severity.Info);
+            return;
+        }
+
+        await FavoriteCityService.AddAsync(city);
+        Snackbar.Add($"{city} added to favorites successfully!", Severity.Success);
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await JsAuth.GetCurrentUserAsync();
+    }
+
+
+    // ✅ CORRECT SIGNATURE FOR MudAutocomplete
+    private async Task<IEnumerable<string>> SearchCities(
+        string value,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length < 2)
+            return Enumerable.Empty<string>();
+
+        var cities = new List<string>
+{
+    // Tamil Nadu
+    "Chennai", "Coimbatore", "Madurai", "Trichy", "Salem",
+    "Erode", "Tiruppur", "Namakkal", "Karur", "Vellore",
+
+    // Karnataka
+    "Bangalore", "Mysore", "Mangalore", "Hubli",
+
+    // Major India
+    "Delhi", "Mumbai", "Hyderabad", "Kolkata", "Pune",
+
+    // Global
+    "New York", "London", "Paris", "Berlin", "Tokyo", "Dubai"
+};
+
+
+        await Task.Delay(100, cancellationToken);
+
+        return cities
+            .Where(c => c.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(c => c)
+            .Take(8);
+    }
+}

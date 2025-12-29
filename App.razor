@@ -1,12 +1,54 @@
-﻿<Router AppAssembly="@typeof(App).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-    </Found>
-    <NotFound>
-        <PageTitle>Not found</PageTitle>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <p role="alert">Sorry, there's nothing at this address.</p>
-        </LayoutView>
-    </NotFound>
-</Router>
+﻿@using Microsoft.AspNetCore.Components.Routing
+@inject JsSupabaseAuthService JsAuth
+@inject NavigationManager Nav
+
+@if (!_loaded)
+{
+    <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    </div>
+}
+else
+{
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+}
+
+@code {
+    private bool _loaded = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var user = await JsAuth.GetCurrentUserAsync();
+
+            if (user != null)
+            {
+                Console.WriteLine($"✅ User session restored: {user.Email}");
+            }
+            else
+            {
+                Console.WriteLine("⚠️ No user session found - browsing as guest");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error checking auth state: {ex.Message}");
+        }
+        finally
+        {
+            _loaded = true;
+        }
+    }
+}
